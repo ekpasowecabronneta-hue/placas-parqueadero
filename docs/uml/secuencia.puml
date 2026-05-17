@@ -1,0 +1,24 @@
+@startuml
+title Secuencia - Generacion y visualizacion
+
+actor Operador
+participant "parking_generator" as Gen
+participant "parking_server" as Srv
+participant "socket_listener" as PySock
+participant "parking (SWIG)" as Lib
+participant "Streamlit" as UI
+
+Operador -> Srv: iniciar(puerto)
+Operador -> Gen: iniciar(ip, puerto, intervalo)
+Operador -> UI: streamlit run
+
+Gen -> Gen: generar placa + timestamp
+Gen -> Gen: parking_process_event()
+Gen -> Srv: PLACA|TS|CELDA|ACCION\n
+Srv -> PySock: broadcast evento
+PySock -> Lib: parking_process_event()
+PySock -> UI: actualizar session_state
+UI -> Lib: available_count(), get_cell_*()
+UI -> Operador: metricas + grid
+
+@enduml

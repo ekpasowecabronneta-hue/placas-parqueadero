@@ -1,0 +1,53 @@
+@startuml
+title Diagrama de clases - Parqueadero
+
+class ParkingLot {
+  - cells: CellState[10]
+  + parking_create()
+  + parking_destroy()
+  + parking_process_event()
+  + parking_available_count()
+  + parking_occupied_count()
+}
+
+class CellState {
+  + plate: string
+  + occupied: bool
+}
+
+class PlateEvent {
+  + plate: string
+  + timestamp: string
+  + cell: int
+  + action: string
+}
+
+class SocketServer {
+  + listen(port)
+  + broadcast(event)
+}
+
+class PlateGenerator {
+  + connect(host, port)
+  + send_event(interval)
+}
+
+class StreamlitApp {
+  + render_metrics()
+  + render_grid()
+  + render_history()
+}
+
+class SocketListener {
+  + connect(host, port)
+  + on_message()
+}
+
+ParkingLot *-- CellState
+SocketServer ..> PlateEvent : reenvia
+PlateGenerator ..> PlateEvent : crea
+SocketListener ..> ParkingLot : actualiza via SWIG
+StreamlitApp --> ParkingLot : consulta
+StreamlitApp --> SocketListener
+
+@enduml

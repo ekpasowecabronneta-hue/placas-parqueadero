@@ -1,0 +1,14 @@
+build/
+__pycache__/
+*.pyc
+*.pyd
+*.dll
+*.exe
+*.obj
+*.o
+.venv/
+venv/
+*.user
+.vs/
+CMakeFiles/
+CMakeCache.txt
