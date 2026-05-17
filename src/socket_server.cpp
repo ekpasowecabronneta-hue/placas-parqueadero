@@ -2,6 +2,7 @@
 #include "socket_platform.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -27,9 +28,10 @@ void remove_client(socket_t client) {
         g_clients.end());
 }
 
-void broadcast_line(const std::string& line) {
+void broadcast_line(const std::string& line, socket_t except_sock) {
     std::lock_guard<std::mutex> lock(g_clients_mutex);
     for (socket_t client : g_clients) {
+        if (client == except_sock) continue;
         send(client, line.c_str(), static_cast<int>(line.size()), 0);
     }
 }
@@ -69,7 +71,7 @@ void handle_client(socket_t client_sock) {
             }
 
             std::string payload = line + "\n";
-            broadcast_line(payload);
+            broadcast_line(payload, client_sock);
             std::printf("Reenviado: %s -> %zu clientes\n",
                         line.c_str(), g_clients.size());
         }
@@ -113,7 +115,7 @@ int main(int argc, char* argv[]) {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(static_cast<u_short>(port));
+    addr.sin_port = htons(static_cast<uint16_t>(port));
 
     if (bind(server_sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
         std::fprintf(stderr, "Error en bind puerto %d\n", port);
@@ -134,7 +136,11 @@ int main(int argc, char* argv[]) {
 
     while (true) {
         sockaddr_in client_addr{};
+#ifdef _WIN32
         int addrlen = sizeof(client_addr);
+#else
+        socklen_t addrlen = sizeof(client_addr);
+#endif
         socket_t client_sock = accept(
             server_sock,
             reinterpret_cast<sockaddr*>(&client_addr),

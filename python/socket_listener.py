@@ -48,26 +48,38 @@ class SocketListener:
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            sock = None
             try:
-                with socket.create_connection((self.host, self.port), timeout=5) as sock:
-                    self._connected = True
-                    self._last_error = None
-                    buffer = ""
-                    while not self._stop.is_set():
+                sock = socket.create_connection((self.host, self.port), timeout=5)
+                sock.settimeout(30.0)
+                self._connected = True
+                self._last_error = None
+                buffer = ""
+                while not self._stop.is_set():
+                    try:
                         chunk = sock.recv(4096)
-                        if not chunk:
-                            break
-                        buffer += chunk.decode("utf-8", errors="replace")
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
-                            line = line.strip()
-                            if not line:
-                                continue
-                            event = self._parking.process_line(line)
-                            if event and self.on_event:
-                                with self._lock:
-                                    self.on_event(event)
+                    except socket.timeout:
+                        continue
+                    if not chunk:
+                        break
+                    buffer += chunk.decode("utf-8", errors="replace")
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+                        if not line:
+                            continue
+                        event = self._parking.process_line(line)
+                        if event and self.on_event:
+                            with self._lock:
+                                self.on_event(event)
             except OSError as exc:
                 self._connected = False
                 self._last_error = str(exc)
                 time.sleep(2)
+            finally:
+                self._connected = False
+                if sock is not None:
+                    try:
+                        sock.close()
+                    except OSError:
+                        pass

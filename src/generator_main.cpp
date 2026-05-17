@@ -2,6 +2,7 @@
 #include "socket_platform.h"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -9,6 +10,7 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace {
 
@@ -73,7 +75,7 @@ int main(int argc, char* argv[]) {
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<u_short>(port));
+    addr.sin_port = htons(static_cast<uint16_t>(port));
 #ifdef _WIN32
     if (InetPtonA(AF_INET, host, &addr.sin_addr) != 1) {
         std::fprintf(stderr, "Host invalido: %s\n", host);
@@ -108,8 +110,15 @@ int main(int argc, char* argv[]) {
     char action[PARKING_MAX_ACTION];
     char line[256];
 
+    std::vector<std::string> recent_plates;
+
     while (true) {
-        std::string plate = random_plate(rng);
+        std::string plate;
+        if (parking_available_count(lot) == 0 && !recent_plates.empty()) {
+            plate = recent_plates[rng() % recent_plates.size()];
+        } else {
+            plate = random_plate(rng);
+        }
         current_timestamp(timestamp, sizeof(timestamp));
 
         int cell = -1;
@@ -117,6 +126,12 @@ int main(int argc, char* argv[]) {
             lot, plate.c_str(), timestamp, &cell, action, sizeof(action));
 
         if (result >= 0) {
+            if (result == 1) {
+                recent_plates.push_back(plate);
+                if (recent_plates.size() > 32) {
+                    recent_plates.erase(recent_plates.begin());
+                }
+            }
             parking_format_message(
                 plate.c_str(), timestamp, cell, action, line, sizeof(line));
 
