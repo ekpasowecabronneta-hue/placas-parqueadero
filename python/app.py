@@ -10,7 +10,7 @@ import streamlit as st
 from parking_bridge import get_parking
 from socket_listener import SocketListener
 
-DEFAULT_HOST = "100.97.151.69"  # VPS Tailscale; usar 127.0.0.1 en local
+DEFAULT_HOST = "100.99.72.63"  # Mac Mini Tailscale; usar 127.0.0.1 en local
 DEFAULT_PORT = 8080
 
 
