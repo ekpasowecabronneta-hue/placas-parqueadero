@@ -1,5 +1,5 @@
 #!/bin/bash
-# Inicia servidor y generador en el VPS (puerto 8080)
+# Inicia servidor y generador (puerto 8080)
 set -e
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${DIR}/build"
@@ -9,7 +9,7 @@ PORT="${1:-8080}"
 INTERVAL="${2:-2}"
 
 if [[ ! -x "$SERVER" ]]; then
-  echo "Compile primero: bash scripts/deploy_vps.sh"
+  echo "Compile primero: bash scripts/deploy_linux.sh (Linux) o scripts/build_mac.sh (macOS)"
   exit 1
 fi
 

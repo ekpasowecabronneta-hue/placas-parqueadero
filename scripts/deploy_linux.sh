@@ -1,5 +1,5 @@
 #!/bin/bash
-# Despliegue en VPS Linux (servidor + generador)
+# Compilacion en Linux con CMake
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p build && cd build

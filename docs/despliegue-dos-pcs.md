@@ -9,7 +9,9 @@
 
 ## PC A — Servidor y generador
 
-1. Obtener la IP local: `ipconfig` (ej. `192.168.1.50`).
+En Mac Mini remoto ver [mac-mini.md](mac-mini.md).
+
+1. Obtener la IP local: `ipconfig` / `ifconfig` (ej. `192.168.1.50` o IP Tailscale).
 2. Permitir el puerto **8080** en el firewall de Windows.
 3. Compilar: `build.bat`
 4. Terminal 1:

@@ -71,6 +71,8 @@ Ver [docs/protocolo.md](docs/protocolo.md).
 
 Ver [docs/despliegue-dos-pcs.md](docs/despliegue-dos-pcs.md).
 
+Servidor remoto en Mac Mini (Tailscale): [docs/mac-mini.md](docs/mac-mini.md).
+
 ## Estructura
 
 ```
