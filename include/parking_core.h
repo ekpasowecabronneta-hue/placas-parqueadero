@@ -59,6 +59,14 @@ PARKING_API int parking_parse_message(
     char* action,
     int action_size);
 
+/* Apply OCCUPY/RELEASE on the cell from the wire (visualizer sync). */
+PARKING_API int parking_apply_wire(
+    ParkingLot* lot,
+    const char* plate,
+    const char* timestamp,
+    int cell,
+    const char* action);
+
 #ifdef __cplusplus
 }
 #endif
