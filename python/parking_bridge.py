@@ -67,6 +67,14 @@ class _CtypesParking:
             ctypes.c_int,
         ]
         self._lib.parking_parse_message.restype = ctypes.c_int
+        self._lib.parking_apply_wire.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+        ]
+        self._lib.parking_apply_wire.restype = ctypes.c_int
 
     def available_count(self) -> int:
         return int(self._lib.parking_available_count(self._lot))
@@ -102,15 +110,12 @@ class _CtypesParking:
         ) != 0:
             return None
 
-        out_cell = ctypes.c_int(-1)
-        out_action = ctypes.create_string_buffer(16)
-        result = self._lib.parking_process_event(
+        result = self._lib.parking_apply_wire(
             self._lot,
             plate.value,
             timestamp.value,
-            ctypes.byref(out_cell),
-            out_action,
-            16,
+            int(cell.value),
+            action.value,
         )
         if result < 0:
             return None
@@ -118,8 +123,8 @@ class _CtypesParking:
         return {
             "plate": plate.value.decode("utf-8"),
             "timestamp": timestamp.value.decode("utf-8"),
-            "cell": int(out_cell.value),
-            "action": out_action.value.decode("utf-8"),
+            "cell": int(cell.value),
+            "action": action.value.decode("utf-8"),
         }
 
 
@@ -152,23 +157,34 @@ class _SwigParking:
         if self._mod.parking_parse_message(line, plate_buf, 16, ts_buf, 32, cell, action_buf, 16) != 0:
             return None
 
-        out_cell = [-1]
-        out_action = " " * 16
-        result = self._mod.parking_process_event(
-            self._lot, plate_buf.strip(), ts_buf.strip(), out_cell, out_action, 16
-        )
-        if result < 0:
+        wire_cell = cell[0] if isinstance(cell, list) else cell
+        wire_action = action_buf.strip("\x00 ").strip()
+        plate_s = plate_buf.strip("\x00 ").strip()
+        ts_s = ts_buf.strip("\x00 ").strip()
+
+        if hasattr(self._mod, "parking_apply_wire"):
+            result = self._mod.parking_apply_wire(
+                self._lot, plate_s, ts_s, wire_cell, wire_action
+            )
+            if result < 0:
+                return None
+        else:
             return None
 
         return {
-            "plate": plate_buf.strip("\x00 ").strip(),
-            "timestamp": ts_buf.strip("\x00 ").strip(),
-            "cell": out_cell[0] if isinstance(out_cell, list) else out_cell,
-            "action": out_action.strip("\x00 ").strip(),
+            "plate": plate_s,
+            "timestamp": ts_s,
+            "cell": wire_cell,
+            "action": wire_action,
         }
 
 
 def load_parking():
+    global _singleton, _backend
+
+    if _singleton is not None:
+        return _singleton, _backend
+
     for path in BUILD_DIRS:
         if path.exists() and str(path) not in sys.path:
             sys.path.insert(0, str(path))
@@ -176,23 +192,29 @@ def load_parking():
     try:
         import parking as swig_mod  # type: ignore
 
-        return _SwigParking(swig_mod), "swig"
+        _singleton, _backend = _SwigParking(swig_mod), "swig"
     except ImportError:
-        pass
+        try:
+            _singleton, _backend = _CtypesParking(), "ctypes"
+        except (FileNotFoundError, OSError):
+            from parking_pure import PurePythonParking
 
-    try:
-        return _CtypesParking(), "ctypes"
-    except (FileNotFoundError, OSError):
-        from parking_pure import PurePythonParking
+            _singleton, _backend = PurePythonParking(), "python"
 
-        return PurePythonParking(), "python"
+    return _singleton, _backend
 
 
 _singleton = None
+_backend = "unknown"
 
 
 def get_parking():
-    global _singleton
     if _singleton is None:
-        _singleton, _ = load_parking()
+        load_parking()
     return _singleton
+
+
+def get_backend() -> str:
+    if _singleton is None:
+        load_parking()
+    return _backend

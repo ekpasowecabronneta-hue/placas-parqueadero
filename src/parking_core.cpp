@@ -161,4 +161,29 @@ int parking_parse_message(
     return 0;
 }
 
+int parking_apply_wire(
+    ParkingLot* lot,
+    const char* plate,
+    const char* timestamp,
+    int cell,
+    const char* action) {
+
+    (void)timestamp;
+    if (!lot || !plate || !action || cell < 0 || cell >= PARKING_NUM_CELLS) return -1;
+
+    if (std::strcmp(action, "RELEASE") == 0) {
+        lot->cells[cell].occupied = 0;
+        lot->cells[cell].plate[0] = '\0';
+        return 0;
+    }
+
+    if (std::strcmp(action, "OCCUPY") == 0) {
+        copy_str(lot->cells[cell].plate, PARKING_MAX_PLATE, plate);
+        lot->cells[cell].occupied = 1;
+        return 1;
+    }
+
+    return -1;
+}
+
 }  // extern "C"

@@ -38,15 +38,34 @@ class PurePythonParking:
                 return i
         return -1
 
+    def apply_wire(self, plate: str, timestamp: str, cell: int, action: str) -> dict | None:
+        if cell < 0 or cell >= NUM_CELLS:
+            return None
+        if action == "RELEASE":
+            self._cells[cell]["occupied"] = False
+            self._cells[cell]["plate"] = ""
+        elif action == "OCCUPY":
+            self._cells[cell]["occupied"] = True
+            self._cells[cell]["plate"] = plate
+        else:
+            return None
+        return {
+            "plate": plate,
+            "timestamp": timestamp,
+            "cell": cell,
+            "action": action,
+        }
+
     def process_line(self, line: str) -> dict | None:
         parts = line.strip().split("|")
         if len(parts) != 4:
             return None
         plate, timestamp, cell_s, action = parts
-        event = self._apply(plate, timestamp)
-        if event is None:
+        try:
+            cell = int(cell_s)
+        except ValueError:
             return None
-        return event
+        return self.apply_wire(plate, timestamp, cell, action)
 
     def _apply(self, plate: str, timestamp: str) -> dict | None:
         existing = self._find_by_plate(plate)

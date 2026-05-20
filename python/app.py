@@ -2,12 +2,33 @@
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
 import streamlit as st
 
-from parking_bridge import get_parking
+_DEBUG_LOG = Path(__file__).resolve().parent.parent / "debug-6dd3d8.log"
+
+
+def _dbg(hypothesis_id: str, location: str, message: str, data: dict) -> None:
+    # #region agent log
+    try:
+        payload = {
+            "sessionId": "6dd3d8",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        with _DEBUG_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload) + "\n")
+    except OSError:
+        pass
+    # #endregion
+
+from parking_bridge import get_backend, get_parking
 from socket_listener import SocketListener
 
 DEFAULT_HOST = "100.99.72.63"  # Mac Mini Tailscale; usar 127.0.0.1 en local
@@ -20,15 +41,29 @@ def _init_state() -> None:
     if "listener" not in st.session_state:
         st.session_state.listener = None
     if "parking" not in st.session_state:
-        from parking_bridge import load_parking
-
-        parking, backend = load_parking()
-        st.session_state.parking = parking
-        st.session_state.backend = backend
+        st.session_state.parking = get_parking()
+        st.session_state.backend = get_backend()
 
 
-def _on_event(event: dict) -> None:
-    st.session_state.events.insert(0, event)
+def _flush_listener_events() -> None:
+    listener: SocketListener | None = st.session_state.get("listener")
+    if listener is None:
+        return
+    pending = listener.drain_events()
+    if not pending:
+        return
+    # #region agent log
+    _dbg(
+        "C",
+        "app._flush_listener_events",
+        "merging events in main thread",
+        {"count": len(pending), "has_events_key": "events" in st.session_state},
+    )
+    # #endregion
+    for event in pending:
+        display = dict(event)
+        display["celda"] = event["cell"] + 1
+        st.session_state.events.insert(0, display)
     st.session_state.events = st.session_state.events[:50]
 
 
@@ -38,7 +73,7 @@ def _ensure_listener(host: str, port: int) -> None:
         return
     if listener:
         listener.stop()
-    listener = SocketListener(host, port, on_event=_on_event)
+    listener = SocketListener(host, port)
     listener.start()
     st.session_state.listener = listener
 
@@ -96,6 +131,33 @@ def main() -> None:
 
     if st.session_state.listener is None:
         _ensure_listener(host, int(port))
+
+    _flush_listener_events()
+
+    listener = st.session_state.get("listener")
+    # #region agent log
+    last = st.session_state.events[0] if st.session_state.events else None
+    sync_cell = None
+    sync_ok = None
+    if last and listener is not None:
+        c = last["cell"]
+        sync_cell = c
+        sync_ok = parking.get_cell_occupied(c) == (last["action"] == "OCCUPY")
+    _dbg(
+        "F",
+        "app.main",
+        "table vs grid sync",
+        {
+            "session_parking_id": id(parking),
+            "listener_parking_id": id(listener._parking) if listener else None,
+            "same_instance": listener is not None and id(parking) == id(listener._parking),
+            "occupied": parking.occupied_count(),
+            "last_event": last,
+            "grid_occupied_at_cell": parking.get_cell_occupied(sync_cell) if sync_cell is not None else None,
+            "sync_ok": sync_ok,
+        },
+    )
+    # #endregion
 
     available = parking.available_count()
     occupied = parking.occupied_count()
